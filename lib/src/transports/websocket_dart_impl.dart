@@ -50,7 +50,7 @@ class SIPUAWebSocketImpl {
 
     // Store WebSocket settings for ping/pong configuration
     _webSocketSettings = webSocketSettings;
-    
+
     // Set allowInvalidCertificates from webSocketSettings
     allowInvalidCertificates = webSocketSettings.allowBadCertificate;
 
@@ -105,7 +105,6 @@ class SIPUAWebSocketImpl {
       final WebSocket webSocket = await WebSocket.connect(
         uriWithAuth.toString(),
         customClient: httpClient,
-        protocols: protocols,
       ).timeout(
         Duration(seconds: 30),
         onTimeout: () {
@@ -221,7 +220,7 @@ class SIPUAWebSocketImpl {
     // Since dart:io WebSocket handles ping/pong automatically,
     // we just need to handle regular messages and reset failure count
     _consecutivePingFailures = 0;
-    
+
     // Regular message handling
     onMessage?.call(data);
   }
@@ -235,12 +234,12 @@ class SIPUAWebSocketImpl {
 
     // Increment failure count - this will be reset when we receive any data
     _consecutivePingFailures++;
-    
+
     logger.d('Connection health check: ${_consecutivePingFailures} consecutive periods without data');
 
     if (_consecutivePingFailures >= _webSocketSettings!.maxPingFailures) {
       logger.e('Max ping failures reached (${_consecutivePingFailures}), connection considered dead');
-      
+
       if (_webSocketSettings!.autoReconnectOnPingTimeout) {
         logger.i('Auto-reconnecting due to connection timeout...');
         _reconnectOnPingTimeout();
@@ -259,10 +258,10 @@ class SIPUAWebSocketImpl {
     }
 
     logger.d('Starting ping/pong keepalive with interval: ${_webSocketSettings!.pingInterval}s');
-    
+
     // Use dart:io WebSocket's built-in ping mechanism
     _socket!.pingInterval = Duration(seconds: _webSocketSettings!.pingInterval);
-    
+
     // Set up a timer to monitor connection health
     _pingTimer = setInterval(() {
       _checkConnectionHealth();
@@ -275,29 +274,27 @@ class SIPUAWebSocketImpl {
     if (_socket != null) {
       _socket!.pingInterval = null;
     }
-    
+
     if (_pingTimer != null) {
       clearInterval(_pingTimer);
       _pingTimer = null;
     }
-    
+
     if (_pongTimeoutTimer != null) {
       clearTimeout(_pongTimeoutTimer);
       _pongTimeoutTimer = null;
     }
-    
+
     _waitingForPong = false;
     _consecutivePingFailures = 0;
   }
 
-
-
   /// Handle connection timeout (used by connection health monitoring)
   void _handlePingTimeout() {
     logger.w('Connection timeout detected');
-    
+
     _waitingForPong = false;
-    
+
     if (_pongTimeoutTimer != null) {
       clearTimeout(_pongTimeoutTimer);
       _pongTimeoutTimer = null;
@@ -313,12 +310,12 @@ class SIPUAWebSocketImpl {
     _stopPingPong();
     _connectionState = ConnectionState.disconnected;
     _isConnected = false;
-    
+
     // Close current connection
     if (_socket != null) {
       _socket!.close(1000, 'Reconnecting due to ping timeout');
     }
-    
+
     // Trigger reconnection through the close callback
     onClose?.call(1006, 'Ping timeout: reconnecting');
   }

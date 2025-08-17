@@ -3,14 +3,10 @@ import '../grammar.dart';
 import '../logger.dart';
 import 'socket_interface.dart';
 
-import 'websocket_dart_impl.dart'
-    if (dart.library.js) 'websocket_web_impl.dart';
+import 'websocket_dart_impl.dart' if (dart.library.js) 'websocket_web_impl.dart';
 
 class SIPUAWebSocket extends SIPUASocketInterface {
-  SIPUAWebSocket(String url,
-      {required int messageDelay,
-      WebSocketSettings? webSocketSettings,
-      int? weight})
+  SIPUAWebSocket(String url, {required int messageDelay, WebSocketSettings? webSocketSettings, int? weight})
       : _messageDelay = messageDelay {
     logger.d('new() [url:$url]');
     _url = url;
@@ -23,8 +19,7 @@ class SIPUAWebSocket extends SIPUASocketInterface {
       logger.e('invalid WebSocket URI scheme: ${parsed_url.scheme}');
       throw AssertionError('Invalid argument: $url');
     } else {
-      String transport_scheme = webSocketSettings != null &&
-              webSocketSettings.transport_scheme != null
+      String transport_scheme = webSocketSettings != null && webSocketSettings.transport_scheme != null
           ? webSocketSettings.transport_scheme!.toLowerCase()
           : parsed_url.scheme;
 
@@ -104,9 +99,7 @@ class SIPUAWebSocket extends SIPUASocketInterface {
         _onClose(true, closeCode, closeReason);
       };
 
-      _ws!.connect(
-          protocols: <String>[_websocket_protocol],
-          webSocketSettings: _webSocketSettings);
+      _ws!.connect(protocols: <String>[_websocket_protocol], webSocketSettings: _webSocketSettings);
     } catch (e, s) {
       logger.e(e.toString(), error: e, stackTrace: s);
       _connected = false;
@@ -173,7 +166,7 @@ class SIPUAWebSocket extends SIPUASocketInterface {
   }
 
   void _onMessage(dynamic data) {
-    logger.d('Received WebSocket message');
+    logger.d('Received WebSocket message: $data');
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         ondata!(data);

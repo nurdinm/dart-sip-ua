@@ -441,6 +441,48 @@ class SIPUAHelper extends EventManager {
     _ua!.terminateSessions(options);
   }
 
+  /// Connection Health Monitoring Configuration
+  
+  /// Set the health check interval in seconds (default: 30)
+  void setHealthCheckInterval(int seconds) {
+    _ua?.setHealthCheckInterval(seconds);
+  }
+
+  /// Set the maximum consecutive health check failures before triggering reconnection (default: 3)
+  void setMaxConsecutiveFailures(int failures) {
+    _ua?.setMaxConsecutiveFailures(failures);
+  }
+
+  /// Enable or disable automatic reconnection on connection health failures (default: true)
+  void setAutoReconnectEnabled(bool enabled) {
+    _ua?.setAutoReconnectEnabled(enabled);
+  }
+
+  /// Check if the connection is currently healthy
+  bool isConnectionHealthy({int timeoutSeconds = 60}) {
+    return _ua?.socketTransport?.isConnectionHealthy(timeoutSeconds: timeoutSeconds) ?? false;
+  }
+
+  /// Get the timestamp of the last received message
+  DateTime? get lastMessageReceived {
+    return _ua?.socketTransport?.lastMessageReceived;
+  }
+
+  /// Get the timestamp of the last received ping
+  DateTime? get lastPingReceived {
+    return _ua?.socketTransport?.lastPingReceived;
+  }
+
+  /// Get the number of consecutive health check failures
+  int get consecutiveHealthCheckFailures {
+    return _ua?.socketTransport?.consecutiveHealthChecks ?? 0;
+  }
+
+  /// Manually send a ping frame for connection health testing
+  void sendPing() {
+    _ua?.socketTransport?.sendPing();
+  }
+
   final Set<SipUaHelperListener> _sipUaHelperListeners =
       <SipUaHelperListener>{};
 
@@ -801,7 +843,7 @@ class WebSocketSettings {
   /// `User Agent` field for dart http client.
   String? userAgent;
 
-  /// Don‘t check the server certificate
+  /// Don't check the server certificate
   /// for self-signed certificate.
   bool allowBadCertificate = false;
 
@@ -809,6 +851,21 @@ class WebSocketSettings {
   /// Otherwise the used protocol will be used (for example WS for ws://
   /// or WSS for wss://, based on the given web socket URL).
   String? transport_scheme;
+
+  /// Enable WebSocket ping/pong keepalive mechanism
+  bool enablePingPong = true;
+
+  /// Interval in seconds between ping frames (default: 30 seconds)
+  int pingInterval = 30;
+
+  /// Timeout in seconds to wait for pong response (default: 10 seconds)
+  int pongTimeout = 10;
+
+  /// Maximum number of consecutive ping failures before considering connection dead
+  int maxPingFailures = 3;
+
+  /// Enable automatic reconnection on ping timeout
+  bool autoReconnectOnPingTimeout = true;
 }
 
 class TcpSocketSettings {
@@ -818,7 +875,7 @@ class TcpSocketSettings {
   /// `User Agent` field for dart http client.
   String? userAgent;
 
-  /// Don‘t check the server certificate
+  /// Don't check the server certificate
   /// for self-signed certificate.
   bool allowBadCertificate = false;
 }

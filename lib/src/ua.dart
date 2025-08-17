@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as Math;
 
 import 'config.dart' as config;
 import 'config.dart';
@@ -131,6 +132,12 @@ class UA extends EventManager {
   // Flag that indicates whether UA is currently stopping
   bool _stopping = false;
 
+  // Connection health monitoring
+  Timer? _healthMonitorTimer;
+  int _healthCheckInterval = 30; // seconds
+  int _maxConsecutiveFailures = 3;
+  bool _autoReconnectEnabled = true;
+
   // ============
   //  High Level API
   // ============
@@ -167,6 +174,95 @@ class UA extends EventManager {
 
     // Set dynamic configuration.
     _dynConfiguration!.register = _configuration.register;
+
+    // Start health monitoring if enabled
+    if (_autoReconnectEnabled) {
+      _startHealthMonitoring();
+    }
+  }
+
+  void _startHealthMonitoring() {
+    _healthMonitorTimer?.cancel();
+    _healthMonitorTimer = Timer.periodic(Duration(seconds: _healthCheckInterval), (timer) {
+      _performHealthCheck();
+    });
+  }
+
+  void _performHealthCheck() {
+    if (!isConnected()) {
+      logger.w('Health check failed: connection is down');
+      if (_autoReconnectEnabled && _status != UAStatus.userClosed) {
+        _handleConnectionFailure();
+      }
+      return;
+    }
+
+    // Check transport health if available
+    if (_socketTransport != null) {
+      if (!_socketTransport!.isConnectionHealthy()) {
+        logger.w('Health check failed: transport reports unhealthy connection');
+        _socketTransport!.incrementHealthCheckFailures();
+        
+        if (_socketTransport!.consecutiveHealthChecks >= _maxConsecutiveFailures) {
+          logger.e('Maximum consecutive health check failures reached, triggering reconnection');
+          if (_autoReconnectEnabled && _status != UAStatus.userClosed) {
+            _handleConnectionFailure();
+          }
+        } else {
+          // Send ping to test connection
+          _socketTransport!.sendPing();
+        }
+      } else {
+        _socketTransport!.resetHealthCheckFailures();
+      }
+    }
+  }
+
+  void _handleConnectionFailure() {
+    logger.i('Handling connection failure, attempting reconnection');
+    
+    if (_status == UAStatus.userClosed || _stopping) {
+      return;
+    }
+
+    // Disconnect current transport
+    if (_socketTransport != null && _socketTransport!.isConnected()) {
+      _socketTransport!.disconnect();
+    }
+
+    // Attempt reconnection after a short delay
+    setTimeout(() {
+      if (_status != UAStatus.userClosed && !_stopping) {
+        logger.i('Attempting automatic reconnection');
+        start();
+      }
+    }, 2000);
+  }
+
+  void _stopHealthMonitoring() {
+    _healthMonitorTimer?.cancel();
+    _healthMonitorTimer = null;
+  }
+
+  // Configuration methods for health monitoring
+  void setHealthCheckInterval(int seconds) {
+    _healthCheckInterval = seconds;
+    if (_healthMonitorTimer != null) {
+      _startHealthMonitoring();
+    }
+  }
+
+  void setMaxConsecutiveFailures(int failures) {
+    _maxConsecutiveFailures = failures;
+  }
+
+  void setAutoReconnectEnabled(bool enabled) {
+    _autoReconnectEnabled = enabled;
+    if (enabled && _status == UAStatus.ready) {
+      _startHealthMonitoring();
+    } else if (!enabled) {
+      _stopHealthMonitoring();
+    }
   }
 
   /**
@@ -340,6 +436,9 @@ class UA extends EventManager {
     });
 
     _stopping = true;
+
+    // Stop health monitoring
+    _stopHealthMonitoring();
 
     // Run  _close_ on every applicant.
     for (Applicant applicant in _applicants) {
@@ -902,6 +1001,11 @@ class UA extends EventManager {
 
     emit(EventSocketConnected(socket: transport.socket));
 
+    // Start health monitoring when connected
+    if (_autoReconnectEnabled) {
+      _startHealthMonitoring();
+    }
+
     if (_dynConfiguration!.register!) {
       _registrator.register();
     }
@@ -909,6 +1013,9 @@ class UA extends EventManager {
 
 // Transport disconnected event.
   void onTransportDisconnect(SIPUASocketInterface? socket, ErrorCause cause) {
+    // Stop health monitoring when disconnected
+    _stopHealthMonitoring();
+
     // Run _onTransportError_ callback on every client transaction using _transport_.
     _transactions.removeAll().forEach((TransactionBase transaction) {
       transaction.onTransportError();
@@ -927,12 +1034,6 @@ class UA extends EventManager {
 
 // Transport data event.
   void onTransportData(SocketTransport transport, String messageData) {
-    // Handle ping messages before SIP parsing
-    if (_isPingMessage(messageData)) {
-      _handlePingMessage(messageData);
-      return;
-    }
-
     IncomingMessage? message = Parser.parseMessage(messageData, this);
 
     if (message == null) {
@@ -980,53 +1081,7 @@ class UA extends EventManager {
     }
   }
 
-  // Helper method to detect ping messages
-  bool _isPingMessage(String data) {
-    String trimmedData = data.trim();
-    // Check for JSON ping messages
-    if (trimmedData.startsWith('{') && trimmedData.endsWith('}')) {
-      try {
-        Map<String, dynamic> json = jsonDecode(trimmedData);
-        return json.containsKey('ping') || (json.containsKey('type') && json['type'] == 'ping');
-      } catch (e) {
-        return false;
-      }
-    }
-    // Check for simple text ping messages
-    return trimmedData.toLowerCase() == 'ping';
-  }
-
   // Handle ping messages
-  void _handlePingMessage(String data) {
-    logger.d('Received ping message: $data');
-    
-    // Respond with pong
-     String pongResponse;
-     String trimmedData = data.trim();
-     
-     if (trimmedData.startsWith('{') && trimmedData.endsWith('}')) {
-       // JSON ping - respond with JSON pong
-       try {
-         Map<String, dynamic> json = jsonDecode(trimmedData) as Map<String, dynamic>;
-        if (json.containsKey('ping')) {
-          pongResponse = jsonEncode({'pong': json['ping']});
-        } else {
-          pongResponse = jsonEncode({'pong': 'pong'});
-        }
-      } catch (e) {
-        pongResponse = jsonEncode({'pong': 'pong'});
-      }
-    } else {
-      // Simple text ping - respond with simple pong
-      pongResponse = 'pong';
-    }
-    
-    // Send pong response through the socket transport
-    if (_socketTransport != null && _socketTransport!.isConnected()) {
-      _socketTransport!.send(pongResponse);
-      logger.d('Sent pong response: $pongResponse');
-    }
-  }
 }
 
 mixin Applicant {

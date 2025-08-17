@@ -72,6 +72,13 @@ class SocketTransport {
   Timer? _recovery_timer;
   bool _close_requested = false;
 
+  // Connection health monitoring
+  DateTime? _lastMessageReceived;
+  DateTime? _lastPingReceived;
+  int _consecutiveHealthChecks = 0;
+  static const String _pingMessage = '{"message":"ping","data":[]}';
+  static const String _pongMessage = '{"message":"pong","data":[]}';
+
   late void Function(SIPUASocketInterface? socket, int? attempts) onconnecting;
   late void Function(SIPUASocketInterface? socket, ErrorCause cause)
       ondisconnect;
@@ -272,10 +279,13 @@ class SocketTransport {
   }
 
   void _onData(dynamic data) {
+    // Update connection health monitoring
+    _lastMessageReceived = DateTime.now();
+    _consecutiveHealthChecks = 0;
+
     // CRLF Keep Alive response from server. Ignore it.
     if (data == '\r\n') {
       logger.d('received message with CRLF Keep Alive response');
-
       return;
     }
 
@@ -298,6 +308,55 @@ class SocketTransport {
       logger.d('received text message:\n\n$data\n');
     }
 
+    // Handle ping/pong frames for connection health
+    if (data == _pingMessage) {
+      logger.d('received ping frame, responding with pong');
+      _lastPingReceived = DateTime.now();
+      // Respond with pong
+      socket.send(_pongMessage);
+      return;
+    } else if (data == _pongMessage) {
+      logger.d('received pong frame, connection is healthy');
+      return;
+    }
+
+    // Regular SIP message
     ondata(this, data);
+  }
+
+  /**
+   * Connection Health Monitoring Methods
+   */
+
+  bool isConnectionHealthy({int timeoutSeconds = 60}) {
+    if (_lastMessageReceived == null) {
+      return false;
+    }
+    
+    final now = DateTime.now();
+    final timeSinceLastMessage = now.difference(_lastMessageReceived!).inSeconds;
+    
+    return timeSinceLastMessage < timeoutSeconds;
+  }
+
+  DateTime? get lastMessageReceived => _lastMessageReceived;
+  
+  DateTime? get lastPingReceived => _lastPingReceived;
+  
+  int get consecutiveHealthChecks => _consecutiveHealthChecks;
+  
+  void incrementHealthCheckFailures() {
+    _consecutiveHealthChecks++;
+  }
+  
+  void resetHealthCheckFailures() {
+    _consecutiveHealthChecks = 0;
+  }
+
+  void sendPing() {
+    if (isConnected()) {
+      logger.d('sending ping frame for connection health check');
+      socket.send(_pingMessage);
+    }
   }
 }

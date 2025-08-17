@@ -136,7 +136,12 @@ class SIPUAWebSocketImpl {
       _channel = IOWebSocketChannel(webSocket);
 
       // Set up stream listeners with enhanced error handling
-      _channel!.stream.listen(_onMessage, onError: _onError, onDone: _onDisconnected, cancelOnError: false);
+      onOpen?.call();
+      _socket!.listen((dynamic data) {
+        onMessage?.call(data);
+      }, onDone: () {
+        onClose?.call(_socket!.closeCode, _socket!.closeReason);
+      });
 
       // Connection successful
       _connectionTimeoutTimer?.cancel();
@@ -145,16 +150,9 @@ class SIPUAWebSocketImpl {
       _connectionEstablishedAt = DateTime.now();
       _reconnectAttempts = 0;
 
-      // Start services
-      _startConnectionHealthMonitoring();
-      await _processMessageQueue();
-
       logger.i('✅ Signaling server connected successfully');
       logger.i('🔗 Connection established at: ${_connectionEstablishedAt!.toIso8601String()}');
       logger.i('🔄 Auto-reconnect: $enableAutoReconnect');
-
-      // Call the original onOpen callback
-      onOpen?.call();
 
       return true;
     } on TimeoutException catch (e) {
@@ -216,16 +214,6 @@ class SIPUAWebSocketImpl {
         // This would need to be implemented based on how reconnection should work
       }
     });
-  }
-
-  void _startConnectionHealthMonitoring() {
-    // Placeholder for connection health monitoring
-    logger.d('🔍 Starting connection health monitoring');
-  }
-
-  Future<void> _processMessageQueue() async {
-    // Placeholder for processing message queue
-    logger.d('📤 Processing message queue');
   }
 
   Future<void> _disconnect({bool disableAutoReconnect = true}) async {

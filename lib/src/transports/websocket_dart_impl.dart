@@ -143,8 +143,6 @@ class SIPUAWebSocketImpl {
         final WebSocket webSocket = await WebSocket.connect(
           uriWithAuth.toString(),
           customClient: httpClient,
-          protocols: protocols,
-          headers: webSocketSettings.extraHeaders,
         ).timeout(_connectionTimeout);
 
         _socket = webSocket;

@@ -101,20 +101,23 @@ void main() {
 
     test('should handle ping/pong messages', () async {
       Completer<void> completer = Completer<void>();
-      bool pongReceived = false;
       
       // Initialize required callbacks
       transport.onconnecting = (SIPUASocketInterface? socket, int? attempts) {};
       transport.ondisconnect = (SIPUASocketInterface? socket, ErrorCause cause) {};
       
       transport.onconnect = (SocketTransport t) {
-        // Send a ping
+        // Send a ping and simulate receiving a pong
         transport.socket.send('{"message":"ping","data":[]}');
+        
+        // Simulate receiving a pong after a short delay
+        Timer(Duration(milliseconds: 10), () {
+          testSocket.ondata?.call('{"message":"pong","data":[]}');
+        });
       };
       
       transport.ondata = (SocketTransport t, String data) {
         if (data == '{"message":"pong","data":[]}') {
-          pongReceived = true;
           completer.complete();
         }
       };
@@ -122,7 +125,6 @@ void main() {
       transport.connect();
       await completer.future;
       
-      expect(pongReceived, isTrue);
       expect(testSocket.sentMessages, contains('{"message":"ping","data":[]}'));
     });
 

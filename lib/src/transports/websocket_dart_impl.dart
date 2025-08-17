@@ -105,6 +105,13 @@ class SIPUAWebSocketImpl {
       final WebSocket webSocket = await WebSocket.connect(
         uriWithAuth.toString(),
         customClient: httpClient,
+        protocols: protocols,
+      ).timeout(
+        Duration(seconds: 30),
+        onTimeout: () {
+          logger.e('WebSocket connection timeout after 30 seconds');
+          throw TimeoutException('WebSocket connection timeout', Duration(seconds: 30));
+        },
       );
 
       _socket = webSocket;
@@ -115,8 +122,13 @@ class SIPUAWebSocketImpl {
       _socket!.listen((dynamic data) {
         _handleIncomingData(data);
       }, onDone: () {
+        logger.w('WebSocket connection closed. Code: ${_socket!.closeCode}, Reason: ${_socket!.closeReason}');
         _stopPingPong();
         onClose?.call(_socket!.closeCode, _socket!.closeReason);
+      }, onError: (error) {
+        logger.e('WebSocket error: $error');
+        _stopPingPong();
+        onClose?.call(1006, 'WebSocket error: $error');
       });
 
       // Connection successful
@@ -170,14 +182,28 @@ class SIPUAWebSocketImpl {
       await Future<void>.delayed(Duration(milliseconds: messageDelay));
       return event;
     }).listen((dynamic event) async {
-      _socket!.add(event);
-      logger.d('send: \n\n$event');
+      try {
+        if (_socket != null && _socket!.readyState == WebSocket.open) {
+          _socket!.add(event);
+          logger.d('send: \n\n$event');
+        } else {
+          logger.w('Cannot send message: WebSocket not open (state: ${_socket?.readyState})');
+        }
+      } catch (error) {
+        logger.e('Error sending message: $error');
+        // Don't close the connection here, just log the error
+      }
+    }, onError: (error) {
+      logger.e('Queue processing error: $error');
     });
   }
 
   void send(dynamic data) async {
-    if (_socket != null) {
+    if (_socket != null && _socket!.readyState == WebSocket.open) {
+      logger.d('Queuing message for send (WebSocket state: ${_socket!.readyState})');
       queue.add(data);
+    } else {
+      logger.w('Cannot queue message: WebSocket not available or not open (state: ${_socket?.readyState})');
     }
   }
 

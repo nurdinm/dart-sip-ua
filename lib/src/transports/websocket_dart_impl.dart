@@ -43,12 +43,15 @@ class SIPUAWebSocketImpl {
   Timer? _pongTimeoutTimer;
   int _consecutivePingFailures = 0;
   bool _waitingForPong = false;
+  DateTime? _lastPingTime;
+  DateTime? _connectionStartTime;
   WebSocketSettings? _webSocketSettings;
   void connect({Iterable<String>? protocols, required WebSocketSettings webSocketSettings}) async {
     handleQueue();
-    logger.i('connect $_url, ${webSocketSettings.extraHeaders}, $protocols');
-
-    // Store WebSocket settings for ping/pong configuration
+    logger.i('connect $_url');
+    
+    // Store connection start time and WebSocket settings
+    _connectionStartTime = DateTime.now();
     _webSocketSettings = webSocketSettings;
 
     // Set allowInvalidCertificates from webSocketSettings
@@ -102,9 +105,35 @@ class SIPUAWebSocketImpl {
       }
 
       // Connect with timeout handling
+      logger.d('Connecting with protocols: $protocols');
+      logger.d('Extra headers: ${webSocketSettings.extraHeaders}');
+      
+      // Set up default headers for SIP over WebSocket (RFC 7118)
+      Map<String, String> headers = <String, String>{};
+      
+      // Add Origin header if not provided (required by many SIP servers)
+      if (!webSocketSettings.extraHeaders.containsKey('Origin')) {
+        headers['Origin'] = 'https://${uriWithAuth.host}';
+      }
+      
+      // Add User-Agent if not provided
+      if (!webSocketSettings.extraHeaders.containsKey('User-Agent')) {
+        headers['User-Agent'] = webSocketSettings.userAgent ?? 'Dart SIP UA Client v1.0.0';
+      }
+      
+      // Add custom headers from settings
+      if (webSocketSettings.extraHeaders.isNotEmpty) {
+        headers.addAll(Map<String, String>.from(webSocketSettings.extraHeaders));
+        httpClient.userAgent = webSocketSettings.userAgent ?? 'Dart SIP UA Client v1.0.0';
+      }
+      
+      logger.d('Final headers: $headers');
+      
       final WebSocket webSocket = await WebSocket.connect(
         uriWithAuth.toString(),
+        protocols: protocols,
         customClient: httpClient,
+        headers: headers.isNotEmpty ? headers : null,
       ).timeout(
         Duration(seconds: 30),
         onTimeout: () {
@@ -112,23 +141,41 @@ class SIPUAWebSocketImpl {
           throw TimeoutException('WebSocket connection timeout', Duration(seconds: 30));
         },
       );
+      
+      logger.d('WebSocket connected with protocol: ${webSocket.protocol}');
+      logger.d('WebSocket ready state: ${webSocket.readyState}');
+      
+      // Validate protocol negotiation
+      if (protocols != null && protocols.isNotEmpty && webSocket.protocol == null) {
+        logger.w('⚠️ WebSocket connected but no protocol was negotiated. Expected: $protocols');
+      } else if (protocols != null && protocols.isNotEmpty && !protocols.contains(webSocket.protocol)) {
+        logger.w('⚠️ WebSocket negotiated unexpected protocol: ${webSocket.protocol}. Expected: $protocols');
+      } else {
+        logger.i('✅ WebSocket protocol negotiation successful: ${webSocket.protocol}');
+      }
 
       _socket = webSocket;
       _channel = IOWebSocketChannel(webSocket);
 
       // Set up stream listeners with enhanced error handling
+      // Add a small delay to ensure the server is ready before calling onOpen
+      // This helps prevent immediate disconnections on some SIP servers
+      await Future.delayed(Duration(milliseconds: 100));
       onOpen?.call();
       _socket!.listen((dynamic data) {
-        _handleIncomingData(data);
-      }, onDone: () {
-        logger.w('WebSocket connection closed. Code: ${_socket!.closeCode}, Reason: ${_socket!.closeReason}');
-        _stopPingPong();
-        onClose?.call(_socket!.closeCode, _socket!.closeReason);
-      }, onError: (error) {
-        logger.e('WebSocket error: $error');
-        _stopPingPong();
-        onClose?.call(1006, 'WebSocket error: $error');
-      });
+          logger.d('📨 Received WebSocket data: ${data.toString().length > 200 ? data.toString().substring(0, 200) + "..." : data.toString()}');
+          _handleIncomingData(data);
+        }, onDone: () {
+          logger.w('🔌 WebSocket connection closed. Code: ${_socket!.closeCode}, Reason: ${_socket!.closeReason}');
+          logger.w('🔌 Connection was open for: ${DateTime.now().difference(_connectionStartTime ?? DateTime.now()).inSeconds} seconds');
+          _stopPingPong();
+          onClose?.call(_socket!.closeCode, _socket!.closeReason);
+        }, onError: (error) {
+          logger.e('❌ WebSocket error occurred: $error');
+          logger.e('❌ Error type: ${error.runtimeType}');
+          _stopPingPong();
+          onClose?.call(1006, error.toString());
+        });
 
       // Connection successful
       _connectionState = ConnectionState.connected;

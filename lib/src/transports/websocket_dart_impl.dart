@@ -73,34 +73,7 @@ class SIPUAWebSocketImpl {
     _lastConnectionAttempt = DateTime.now();
 
     try {
-      // Clean up existing connection
-      if (_channel != null || _socket != null) {
-        await _disconnect(disableAutoReconnect: false);
-      }
-
-      // Store connection parameters for potential reconnection
-      _lastUrl = url;
-      _lastAuthToken = authToken;
-      _shouldAutoReconnect = enableAutoReconnect;
-
       logger.i('🔗 Attempting to connect to: $url');
-
-      // Set connection timeout
-      _connectionTimeoutTimer?.cancel();
-      _connectionTimeoutTimer = Timer(_connectionTimeout, () {
-        if (_connectionState == ConnectionState.connecting) {
-          logger.w('⏰ Connection timeout after ${_connectionTimeout.inSeconds}s');
-          _connectionState = ConnectionState.failed;
-          _channel?.sink.close(1000);
-          _channel = null;
-          _socket?.close();
-          _socket = null;
-
-          if (_shouldAutoReconnect) {
-            _scheduleReconnect();
-          }
-        }
-      });
 
       final Uri uri = Uri.parse(url);
       final Uri uriWithAuth = authToken != null

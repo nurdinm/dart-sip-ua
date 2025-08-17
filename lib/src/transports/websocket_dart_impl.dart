@@ -107,50 +107,36 @@ class SIPUAWebSocketImpl {
           ? uri.replace(queryParameters: <String, String>{...uri.queryParameters, 'token': authToken})
           : uri;
 
-      if (webSocketSettings.allowBadCertificate) {
-        // Use existing bad certificate handling
-        // _socket = await _connectForBadCertificate(url, webSocketSettings);
+      // Create WebSocket with enhanced configuration
+      final HttpClient httpClient = HttpClient();
+      httpClient.connectionTimeout = _connectionTimeout;
 
-        // Set up listeners for the WebSocket
-        _socket!.listen((dynamic data) {
-          _onMessage(data);
-        }, onDone: () {
-          _onDisconnected();
-        }, onError: (Object error) {
-          _onError(error);
-        });
-      } else {
-        // Create WebSocket with enhanced configuration
-        final HttpClient httpClient = HttpClient();
-        httpClient.connectionTimeout = _connectionTimeout;
-
-        // Configure SSL certificate handling only for secure connections (wss://)
-        final bool isSecureConnection = uriWithAuth.scheme == 'wss';
-        if (isSecureConnection && allowInvalidCertificates) {
-          httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) {
-            logger.w('⚠️ SSL Certificate warning for $host:$port');
-            logger.w('⚠️ Certificate subject: ${cert.subject}');
-            logger.w('⚠️ Certificate issuer: ${cert.issuer}');
-            logger.w('⚠️ Allowing connection (allowInvalidCertificates=true)');
-            return true;
-          };
-        } else if (!isSecureConnection) {
-          logger.i('🔓 Using non-secure WebSocket connection (ws://)');
-          logger.i('🔓 SSL certificate handling disabled for non-secure connection');
-        }
-
-        // Connect with timeout handling
-        final WebSocket webSocket = await WebSocket.connect(
-          uriWithAuth.toString(),
-          customClient: httpClient,
-        ).timeout(_connectionTimeout);
-
-        _socket = webSocket;
-        _channel = IOWebSocketChannel(webSocket);
-
-        // Set up stream listeners with enhanced error handling
-        _channel!.stream.listen(_onMessage, onError: _onError, onDone: _onDisconnected, cancelOnError: false);
+      // Configure SSL certificate handling only for secure connections (wss://)
+      final bool isSecureConnection = uriWithAuth.scheme == 'wss';
+      if (isSecureConnection && allowInvalidCertificates) {
+        httpClient.badCertificateCallback = (X509Certificate cert, String host, int port) {
+          logger.w('⚠️ SSL Certificate warning for $host:$port');
+          logger.w('⚠️ Certificate subject: ${cert.subject}');
+          logger.w('⚠️ Certificate issuer: ${cert.issuer}');
+          logger.w('⚠️ Allowing connection (allowInvalidCertificates=true)');
+          return true;
+        };
+      } else if (!isSecureConnection) {
+        logger.i('🔓 Using non-secure WebSocket connection (ws://)');
+        logger.i('🔓 SSL certificate handling disabled for non-secure connection');
       }
+
+      // Connect with timeout handling
+      final WebSocket webSocket = await WebSocket.connect(
+        uriWithAuth.toString(),
+        customClient: httpClient,
+      ).timeout(_connectionTimeout);
+
+      _socket = webSocket;
+      _channel = IOWebSocketChannel(webSocket);
+
+      // Set up stream listeners with enhanced error handling
+      _channel!.stream.listen(_onMessage, onError: _onError, onDone: _onDisconnected, cancelOnError: false);
 
       // Connection successful
       _connectionTimeoutTimer?.cancel();

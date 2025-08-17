@@ -109,7 +109,7 @@ class SIPUAWebSocketImpl {
 
       if (webSocketSettings.allowBadCertificate) {
         // Use existing bad certificate handling
-        // _socket = await _connectForBadCertificate(url, webSocketSettings);
+        _socket = await _connectForBadCertificate(url, webSocketSettings);
 
         // Set up listeners for the WebSocket
         _socket!.listen((dynamic data) {

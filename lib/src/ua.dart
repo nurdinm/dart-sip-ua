@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'config.dart' as config;
 import 'config.dart';
@@ -94,9 +95,7 @@ class UA extends EventManager {
   }
 
   final Map<String?, Subscriber> _subscribers = <String?, Subscriber>{};
-  final Map<String, dynamic> _cache = <String, dynamic>{
-    'credentials': <dynamic>{}
-  };
+  final Map<String, dynamic> _cache = <String, dynamic>{'credentials': <dynamic>{}};
 
   final Settings _configuration = Settings();
   DynamicSettings? _dynConfiguration = DynamicSettings();
@@ -163,8 +162,7 @@ class UA extends EventManager {
     } else if (_status == UAStatus.ready) {
       logger.d('UA is in READY status, not restarted');
     } else {
-      logger.d(
-          'ERROR: connection is down, Auto-Recovery system is trying to reconnect');
+      logger.d('ERROR: connection is down, Auto-Recovery system is trying to reconnect');
     }
 
     // Set dynamic configuration.
@@ -205,8 +203,7 @@ class UA extends EventManager {
   ]) {
     logger.d('subscribe()');
 
-    return Subscriber(this, target, eventName, accept, expires, contentType,
-        allowEvents, requestParams, extraHeaders);
+    return Subscriber(this, target, eventName, accept, expires, contentType, allowEvents, requestParams, extraHeaders);
   }
 
   /**
@@ -256,8 +253,7 @@ class UA extends EventManager {
    * -throws {TypeError}
    *
    */
-  Message sendMessage(String target, String body, Map<String, dynamic>? options,
-      Map<String, dynamic>? params) {
+  Message sendMessage(String target, String body, Map<String, dynamic>? options, Map<String, dynamic>? params) {
     logger.d('sendMessage()');
     Message message = Message(this);
     message.send(target, body, options, params);
@@ -274,8 +270,7 @@ class UA extends EventManager {
    * -throws {TypeError}
    *
    */
-  Options sendOptions(
-      String target, String body, Map<String, dynamic>? options) {
+  Options sendOptions(String target, String body, Map<String, dynamic>? options) {
     logger.d('sendOptions()');
     Options message = Options(this);
     message.send(target, body, options);
@@ -497,8 +492,7 @@ class UA extends EventManager {
       return;
     }
     _applicants.add(message);
-    emit(EventNewMessage(
-        message: message, originator: originator, request: request));
+    emit(EventNewMessage(message: message, originator: originator, request: request));
   }
 
   /**
@@ -510,8 +504,7 @@ class UA extends EventManager {
     }
     _applicants.add(message);
 
-    emit(EventNewOptions(
-        message: message, originator: originator, request: request));
+    emit(EventNewOptions(message: message, originator: originator, request: request));
   }
 
   /**
@@ -537,11 +530,9 @@ class UA extends EventManager {
   /**
    * RTCSession
    */
-  void newRTCSession(
-      {required RTCSession session, Originator? originator, dynamic request}) {
+  void newRTCSession({required RTCSession session, Originator? originator, dynamic request}) {
     _sessions[session.id] = session;
-    emit(EventNewRTCSession(
-        session: session, originator: originator, request: request));
+    emit(EventNewRTCSession(session: session, originator: originator, request: request));
   }
 
   /**
@@ -556,10 +547,8 @@ class UA extends EventManager {
    */
   void registered({required dynamic response}) {
     emit(EventRegistered(
-        cause: ErrorCause(
-            cause: 'registered',
-            status_code: response.status_code,
-            reason_phrase: response.reason_phrase)));
+        cause:
+            ErrorCause(cause: 'registered', status_code: response.status_code, reason_phrase: response.reason_phrase)));
   }
 
   /**
@@ -595,8 +584,7 @@ class UA extends EventManager {
     DartSIP_C.SipMethod? method = request.method;
 
     // Check that request URI points to us.
-    if (request.ruri!.user != _configuration.uri!.user &&
-        request.ruri!.user != _contact!.uri!.user) {
+    if (request.ruri!.user != _configuration.uri!.user && request.ruri!.user != _contact!.uri!.user) {
       logger.d('Request-URI does not point to us');
       if (request.method != SipMethod.ACK) {
         request.reply_sl(404);
@@ -676,8 +664,7 @@ class UA extends EventManager {
             if (request.hasHeader('replaces')) {
               ParsedData replaces = request.replaces;
 
-              dialog = _findDialog(
-                  replaces.call_id, replaces.from_tag!, replaces.to_tag!);
+              dialog = _findDialog(replaces.call_id, replaces.from_tag!, replaces.to_tag!);
               if (dialog != null) {
                 session = dialog.owner as RTCSession?;
                 if (!session!.isEnded()) {
@@ -702,8 +689,7 @@ class UA extends EventManager {
           request.reply(481);
           break;
         case SipMethod.CANCEL:
-          session =
-              _findSession(request.call_id!, request.from_tag, request.to_tag);
+          session = _findSession(request.call_id!, request.from_tag, request.to_tag);
           if (session != null) {
             session.receiveRequest(request);
           } else {
@@ -731,14 +717,12 @@ class UA extends EventManager {
     }
     // In-dialog request.
     else {
-      dialog =
-          _findDialog(request.call_id!, request.from_tag!, request.to_tag!);
+      dialog = _findDialog(request.call_id!, request.from_tag!, request.to_tag!);
 
       if (dialog != null) {
         dialog.receiveRequest(request);
       } else if (method == SipMethod.NOTIFY) {
-        Subscriber? sub = _findSubscriber(
-            request.call_id!, request.from_tag!, request.to_tag!);
+        Subscriber? sub = _findSubscriber(request.call_id!, request.from_tag!, request.to_tag!);
         if (sub != null) {
           sub.receiveRequest(request);
         } else {
@@ -818,8 +802,7 @@ class UA extends EventManager {
     // Post Configuration Process.
 
     // Allow passing 0 number as display_name.
-    if (_configuration.display_name is num &&
-        (_configuration.display_name as num?) == 0) {
+    if (_configuration.display_name is num && (_configuration.display_name as num?) == 0) {
       _configuration.display_name = '0';
     }
 
@@ -832,13 +815,10 @@ class UA extends EventManager {
     // String containing _configuration.uri without scheme and user.
     URI hostport_params = _configuration.uri!.clone();
 
-    _configuration.terminateOnAudioMediaPortZero =
-        configuration.terminateOnAudioMediaPortZero;
+    _configuration.terminateOnAudioMediaPortZero = configuration.terminateOnAudioMediaPortZero;
 
     hostport_params.user = null;
-    _configuration.hostport_params = hostport_params
-        .toString()
-        .replaceAll(RegExp(r'sip:', caseSensitive: false), '');
+    _configuration.hostport_params = hostport_params.toString().replaceAll(RegExp(r'sip:', caseSensitive: false), '');
 
     // Websockets Transport
 
@@ -895,11 +875,7 @@ class UA extends EventManager {
     // Contact URI.
     else {
       _configuration.contact_uri = URI(
-          'sip',
-          Utils.createRandomToken(8),
-          _configuration.via_host,
-          null,
-          <dynamic, dynamic>{'transport': transport});
+          'sip', Utils.createRandomToken(8), _configuration.via_host, null, <dynamic, dynamic>{'transport': transport});
     }
     _contact = Contact(_configuration.contact_uri);
     return;
@@ -951,6 +927,12 @@ class UA extends EventManager {
 
 // Transport data event.
   void onTransportData(SocketTransport transport, String messageData) {
+    // Handle ping messages before SIP parsing
+    if (_isPingMessage(messageData)) {
+      _handlePingMessage(messageData);
+      return;
+    }
+
     IncomingMessage? message = Parser.parseMessage(messageData, this);
 
     if (message == null) {
@@ -963,8 +945,7 @@ class UA extends EventManager {
 
     // Do some sanity check.
     if (!sanityCheck(message, this, transport)) {
-      logger.w(
-          'Incoming message did not pass sanity test, dumping it: \n\n $message');
+      logger.w('Incoming message did not pass sanity test, dumping it: \n\n $message');
       return;
     }
 
@@ -979,8 +960,8 @@ class UA extends EventManager {
 
       switch (message.method) {
         case SipMethod.INVITE:
-          InviteClientTransaction? transaction = _transactions.getTransaction(
-              InviteClientTransaction, message.via_branch!);
+          InviteClientTransaction? transaction =
+              _transactions.getTransaction(InviteClientTransaction, message.via_branch!);
           if (transaction != null) {
             transaction.receiveResponse(message.status_code, message);
           }
@@ -989,13 +970,61 @@ class UA extends EventManager {
           // Just in case ;-).
           break;
         default:
-          NonInviteClientTransaction? transaction = _transactions
-              .getTransaction(NonInviteClientTransaction, message.via_branch!);
+          NonInviteClientTransaction? transaction =
+              _transactions.getTransaction(NonInviteClientTransaction, message.via_branch!);
           if (transaction != null) {
             transaction.receiveResponse(message.status_code, message);
           }
           break;
       }
+    }
+  }
+
+  // Helper method to detect ping messages
+  bool _isPingMessage(String data) {
+    String trimmedData = data.trim();
+    // Check for JSON ping messages
+    if (trimmedData.startsWith('{') && trimmedData.endsWith('}')) {
+      try {
+        Map<String, dynamic> json = jsonDecode(trimmedData);
+        return json.containsKey('ping') || (json.containsKey('type') && json['type'] == 'ping');
+      } catch (e) {
+        return false;
+      }
+    }
+    // Check for simple text ping messages
+    return trimmedData.toLowerCase() == 'ping';
+  }
+
+  // Handle ping messages
+  void _handlePingMessage(String data) {
+    logger.d('Received ping message: $data');
+    
+    // Respond with pong
+     String pongResponse;
+     String trimmedData = data.trim();
+     
+     if (trimmedData.startsWith('{') && trimmedData.endsWith('}')) {
+       // JSON ping - respond with JSON pong
+       try {
+         Map<String, dynamic> json = jsonDecode(trimmedData) as Map<String, dynamic>;
+        if (json.containsKey('ping')) {
+          pongResponse = jsonEncode({'pong': json['ping']});
+        } else {
+          pongResponse = jsonEncode({'pong': 'pong'});
+        }
+      } catch (e) {
+        pongResponse = jsonEncode({'pong': 'pong'});
+      }
+    } else {
+      // Simple text ping - respond with simple pong
+      pongResponse = 'pong';
+    }
+    
+    // Send pong response through the socket transport
+    if (_socketTransport != null && _socketTransport!.isConnected()) {
+      _socketTransport!.send(pongResponse);
+      logger.d('Sent pong response: $pongResponse');
     }
   }
 }

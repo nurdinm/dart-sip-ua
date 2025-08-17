@@ -298,37 +298,6 @@ class SocketTransport {
       logger.d('received text message:\n\n$data\n');
     }
 
-    // Filter out non-SIP messages (JSON ping/pong, etc.)
-    if (_isNonSipMessage(data)) {
-      logger.d('received non-SIP message, ignoring: $data');
-      return;
-    }
-
     ondata(this, data);
-  }
-
-  /// Check if the message is a non-SIP message (like JSON ping/pong)
-  bool _isNonSipMessage(String data) {
-    final String trimmedData = data.trim();
-    
-    // Check for JSON messages (ping/pong, etc.)
-    if (trimmedData.startsWith('{') && trimmedData.endsWith('}')) {
-      try {
-        // Try to parse as JSON to confirm it's a valid JSON message
-        // Common WebSocket control messages include ping/pong
-        return true;
-      } catch (e) {
-        // If JSON parsing fails, treat as potential SIP message
-        return false;
-      }
-    }
-    
-    // Check for other non-SIP patterns if needed
-    // For example, simple text commands like "ping", "pong"
-    if (trimmedData == 'ping' || trimmedData == 'pong') {
-      return true;
-    }
-    
-    return false;
   }
 }

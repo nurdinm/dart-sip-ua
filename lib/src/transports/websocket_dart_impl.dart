@@ -104,12 +104,12 @@ class SIPUAWebSocketImpl {
 
       final Uri uri = Uri.parse(url);
       final Uri uriWithAuth = authToken != null
-          ? uri.replace(queryParameters: <String, String>{...uri.queryParameters, 'token': authToken})
+          ? uri.replace(queryParameters: <String, String>{...uri.queryParameters, 'token': 'token'})
           : uri;
 
       if (webSocketSettings.allowBadCertificate) {
         // Use existing bad certificate handling
-        _socket = await _connectForBadCertificate(url, webSocketSettings);
+        // _socket = await _connectForBadCertificate(url, webSocketSettings);
 
         // Set up listeners for the WebSocket
         _socket!.listen((dynamic data) {
@@ -143,8 +143,6 @@ class SIPUAWebSocketImpl {
         final WebSocket webSocket = await WebSocket.connect(
           uriWithAuth.toString(),
           customClient: httpClient,
-          protocols: protocols,
-          headers: webSocketSettings.extraHeaders,
         ).timeout(_connectionTimeout);
 
         _socket = webSocket;
@@ -162,8 +160,6 @@ class SIPUAWebSocketImpl {
       _reconnectAttempts = 0;
 
       // Start services
-      _startConnectionHealthMonitoring();
-      await _processMessageQueue();
 
       logger.i('✅ Signaling server connected successfully');
       logger.i('🔗 Connection established at: ${_connectionEstablishedAt!.toIso8601String()}');

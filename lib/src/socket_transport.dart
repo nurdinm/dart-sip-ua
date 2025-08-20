@@ -155,7 +155,7 @@ class SocketTransport {
       return false;
     }
     String message = data.toString();
-    return socket.send('');
+    return socket.send(message);
   }
 
   bool isConnected() {

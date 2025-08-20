@@ -47,8 +47,7 @@ class SocketTransport {
 
     // We must recieve at least 1 socket
     if (sockets!.isEmpty) {
-      throw Exceptions.TypeError(
-          'invalid argument: Must recieve atleast 1 web socket');
+      throw Exceptions.TypeError('invalid argument: Must recieve atleast 1 web socket');
     }
 
     for (final SIPUASocketInterface socket in sockets) {
@@ -80,8 +79,7 @@ class SocketTransport {
   static const String _pongMessage = '{"message":"pong","data":[]}';
 
   late void Function(SIPUASocketInterface? socket, int? attempts) onconnecting;
-  late void Function(SIPUASocketInterface? socket, ErrorCause cause)
-      ondisconnect;
+  late void Function(SIPUASocketInterface? socket, ErrorCause cause) ondisconnect;
   late void Function(SocketTransport transport) onconnect;
   late void Function(SocketTransport transport, String messageData) ondata;
 
@@ -137,16 +135,13 @@ class SocketTransport {
 
     // Unbind socket event callbacks.
     socket.onconnect = () => () {};
-    socket.ondisconnect = (SIPUASocketInterface socket, bool error,
-            int? closeCode, String? reason) =>
-        () {};
+    socket.ondisconnect = (SIPUASocketInterface socket, bool error, int? closeCode, String? reason) => () {};
     socket.ondata = (dynamic data) => () {};
 
     socket.disconnect();
     ondisconnect(
       socket,
-      ErrorCause(
-          cause: 'disconnect', status_code: 0, reason_phrase: 'close by local'),
+      ErrorCause(cause: 'disconnect', status_code: 0, reason_phrase: 'close by local'),
     );
   }
 
@@ -154,14 +149,13 @@ class SocketTransport {
     logger.d('Socket Transport send()');
 
     if (!isConnected()) {
-      logger.e(
-          'unable to send message, transport is not connected. Current state is $status',
+      logger.e('unable to send message, transport is not connected. Current state is $status',
           stackTrace: StackTraceNJ());
 
       return false;
     }
     String message = data.toString();
-    return socket.send(message);
+    return socket.send('');
   }
 
   bool isConnected() {
@@ -187,8 +181,7 @@ class SocketTransport {
       k = _recovery_options['max_interval']!;
     }
 
-    logger.d(
-        'reconnection attempt: $_recover_attempts. next connection attempt in $k seconds');
+    logger.d('reconnection attempt: $_recover_attempts. next connection attempt in $k seconds');
 
     _recovery_timer = setTimeout(() {
       if (!_close_requested && !(isConnected() || isConnecting())) {
@@ -255,13 +248,9 @@ class SocketTransport {
     onconnect(this);
   }
 
-  void _onDisconnect(
-      SIPUASocketInterface socket, bool error, int? closeCode, String? reason) {
+  void _onDisconnect(SIPUASocketInterface socket, bool error, int? closeCode, String? reason) {
     status = TransportStatus.disconnected;
-    ondisconnect(
-        socket,
-        ErrorCause(
-            cause: 'error', status_code: closeCode, reason_phrase: reason));
+    ondisconnect(socket, ErrorCause(cause: 'error', status_code: closeCode, reason_phrase: reason));
 
     if (_close_requested) {
       return;
@@ -332,23 +321,23 @@ class SocketTransport {
     if (_lastMessageReceived == null) {
       return false;
     }
-    
+
     final now = DateTime.now();
     final timeSinceLastMessage = now.difference(_lastMessageReceived!).inSeconds;
-    
+
     return timeSinceLastMessage < timeoutSeconds;
   }
 
   DateTime? get lastMessageReceived => _lastMessageReceived;
-  
+
   DateTime? get lastPingReceived => _lastPingReceived;
-  
+
   int get consecutiveHealthChecks => _consecutiveHealthChecks;
-  
+
   void incrementHealthCheckFailures() {
     _consecutiveHealthChecks++;
   }
-  
+
   void resetHealthCheckFailures() {
     _consecutiveHealthChecks = 0;
   }

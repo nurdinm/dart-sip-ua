@@ -115,13 +115,13 @@ class SIPUAWebSocketImpl {
   }
 
   void _stopPingPong() {
-     clearInterval(_pingTimer);
-     clearTimeout(_pongTimeoutTimer);
-     _pingTimer = null;
-     _pongTimeoutTimer = null;
-     _waitingForPong = false;
-     _consecutivePingFailures = 0;
-   }
+    _pingTimer?.cancel();
+    _pongTimeoutTimer?.cancel();
+    _pingTimer = null;
+    _pongTimeoutTimer = null;
+    _waitingForPong = false;
+    _consecutivePingFailures = 0;
+  }
 
   void _sendPing() {
     if (_waitingForPong) {
@@ -150,17 +150,17 @@ class SIPUAWebSocketImpl {
   }
 
   void _handlePongReceived() {
-     _waitingForPong = false;
-     _consecutivePingFailures = 0;
-     clearTimeout(_pongTimeoutTimer);
-     _pongTimeoutTimer = null;
-   }
+    _waitingForPong = false;
+    _consecutivePingFailures = 0;
+    _pongTimeoutTimer?.cancel();
+    _pongTimeoutTimer = null;
+  }
 
   void _handlePingTimeout() {
-     _waitingForPong = false;
-     _consecutivePingFailures++;
-     clearTimeout(_pongTimeoutTimer);
-     _pongTimeoutTimer = null;
+    _waitingForPong = false;
+    _consecutivePingFailures++;
+    _pongTimeoutTimer?.cancel();
+    _pongTimeoutTimer = null;
 
     final maxFailures = _webSocketSettings?.maxPingFailures ?? 3;
     if (_consecutivePingFailures >= maxFailures) {

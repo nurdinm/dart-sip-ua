@@ -26,28 +26,42 @@ class SIPUATcpSocketImpl {
       {Iterable<String>? protocols,
       required TcpSocketSettings tcpSocketSettings}) async {
     handleQueue();
-    logger.i('connect $_host:$_port');
+    logger.i('connect $_host:$_port with timeout ${tcpSocketSettings.connectionTimeout}s');
     try {
       if (tcpSocketSettings.allowBadCertificate) {
         // /// Allow self-signed certificate, for test only.
         // _socket = await _connectForBadCertificate(_url, tcpSocketSettings);
       } else {
-        // used to have these
-        //protocols: protocols, headers: webSocketSettings.extraHeaders
+        // Connect with configurable timeout
         _socket = await Socket.connect(
           _host,
           int.parse(_port),
+        ).timeout(
+          Duration(seconds: tcpSocketSettings.connectionTimeout),
+          onTimeout: () {
+            logger.e('TCP connection timeout after ${tcpSocketSettings.connectionTimeout} seconds');
+            throw TimeoutException('TCP connection timeout', Duration(seconds: tcpSocketSettings.connectionTimeout));
+          },
         );
       }
 
+      logger.i('TCP socket connected successfully to $_host:$_port');
       onOpen?.call();
 
       _socket!.listen((dynamic data) {
         onData?.call(data);
       }, onDone: () {
-        //  onClose?.call(_socket!., _socket!.closeReason);
+        logger.d('TCP socket connection closed');
+        onClose?.call(1000, 'Connection closed normally');
+      }, onError: (error) {
+        logger.e('TCP socket error: $error');
+        onClose?.call(500, error.toString());
       });
+    } on TimeoutException catch (e) {
+      logger.e('TCP connection timeout: $e');
+      onClose?.call(408, 'Connection timeout: ${e.message}');
     } catch (e) {
+      logger.e('TCP connection error: $e');
       onClose?.call(500, e.toString());
     }
   }

@@ -174,95 +174,6 @@ class UA extends EventManager {
 
     // Set dynamic configuration.
     _dynConfiguration!.register = _configuration.register;
-
-    // Start health monitoring if enabled
-    if (_autoReconnectEnabled) {
-      _startHealthMonitoring();
-    }
-  }
-
-  void _startHealthMonitoring() {
-    _healthMonitorTimer?.cancel();
-    _healthMonitorTimer = Timer.periodic(Duration(seconds: _healthCheckInterval), (timer) {
-      _performHealthCheck();
-    });
-  }
-
-  void _performHealthCheck() {
-    if (!isConnected()) {
-      logger.w('Health check failed: connection is down');
-      if (_autoReconnectEnabled && _status != UAStatus.userClosed) {
-        _handleConnectionFailure();
-      }
-      return;
-    }
-
-    // Check transport health if available
-    if (_socketTransport != null) {
-      if (!_socketTransport!.isConnectionHealthy()) {
-        logger.w('Health check failed: transport reports unhealthy connection');
-        _socketTransport!.incrementHealthCheckFailures();
-        
-        if (_socketTransport!.consecutiveHealthChecks >= _maxConsecutiveFailures) {
-          logger.e('Maximum consecutive health check failures reached, triggering reconnection');
-          if (_autoReconnectEnabled && _status != UAStatus.userClosed) {
-            _handleConnectionFailure();
-          }
-        } else {
-          // Send ping to test connection
-          _socketTransport!.sendPing();
-        }
-      } else {
-        _socketTransport!.resetHealthCheckFailures();
-      }
-    }
-  }
-
-  void _handleConnectionFailure() {
-    logger.i('Handling connection failure, attempting reconnection');
-    
-    if (_status == UAStatus.userClosed || _stopping) {
-      return;
-    }
-
-    // Disconnect current transport
-    if (_socketTransport != null && _socketTransport!.isConnected()) {
-      _socketTransport!.disconnect();
-    }
-
-    // Attempt reconnection after a short delay
-    setTimeout(() {
-      if (_status != UAStatus.userClosed && !_stopping) {
-        logger.i('Attempting automatic reconnection');
-        start();
-      }
-    }, 2000);
-  }
-
-  void _stopHealthMonitoring() {
-    _healthMonitorTimer?.cancel();
-    _healthMonitorTimer = null;
-  }
-
-  // Configuration methods for health monitoring
-  void setHealthCheckInterval(int seconds) {
-    _healthCheckInterval = seconds;
-    if (_healthMonitorTimer != null) {
-      _startHealthMonitoring();
-    }
-  }
-
-  void setMaxConsecutiveFailures(int failures) {
-    _maxConsecutiveFailures = failures;
-  }
-
-  void setAutoReconnectEnabled(bool enabled) {
-    _autoReconnectEnabled = enabled;
-    if (enabled && _status == UAStatus.ready) {
-      _startHealthMonitoring();
-    } else if (!enabled) {
-      _stopHealthMonitoring();
-    }
   }
 
   /**
@@ -436,9 +347,6 @@ class UA extends EventManager {
     });
 
     _stopping = true;
-
-    // Stop health monitoring
-    _stopHealthMonitoring();
 
     // Run  _close_ on every applicant.
     for (Applicant applicant in _applicants) {
@@ -1001,11 +909,6 @@ class UA extends EventManager {
 
     emit(EventSocketConnected(socket: transport.socket));
 
-    // Start health monitoring when connected
-    if (_autoReconnectEnabled) {
-      _startHealthMonitoring();
-    }
-
     if (_dynConfiguration!.register!) {
       _registrator.register();
     }
@@ -1013,9 +916,6 @@ class UA extends EventManager {
 
 // Transport disconnected event.
   void onTransportDisconnect(SIPUASocketInterface? socket, ErrorCause cause) {
-    // Stop health monitoring when disconnected
-    _stopHealthMonitoring();
-
     // Run _onTransportError_ callback on every client transaction using _transport_.
     _transactions.removeAll().forEach((TransactionBase transaction) {
       transaction.onTransportError();

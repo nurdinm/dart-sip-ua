@@ -2,13 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:sip_ua/src/sip_ua_helper.dart';
 import 'package:web_socket_channel/io.dart';
 
 import '../logger.dart';
-import '../timers.dart';
 
 typedef OnMessageCallback = void Function(dynamic msg);
 typedef OnCloseCallback = void Function(int? code, String? reason);
@@ -38,12 +36,6 @@ class SIPUAWebSocketImpl {
 
   bool allowInvalidCertificates = false;
 
-  // Ping/Pong keepalive management
-  Timer? _pingTimer;
-  Timer? _pongTimeoutTimer;
-  int _consecutivePingFailures = 0;
-  bool _waitingForPong = false;
-  DateTime? _lastPingTime;
   DateTime? _connectionStartTime;
   WebSocketSettings? _webSocketSettings;
   void connect({Iterable<String>? protocols, required WebSocketSettings webSocketSettings}) async {
@@ -169,12 +161,10 @@ class SIPUAWebSocketImpl {
         logger.w('🔌 WebSocket connection closed. Code: ${_socket!.closeCode}, Reason: ${_socket!.closeReason}');
         logger.w(
             '🔌 Connection was open for: ${DateTime.now().difference(_connectionStartTime ?? DateTime.now()).inSeconds} seconds');
-        _stopPingPong();
         onClose?.call(_socket!.closeCode, _socket!.closeReason);
       }, onError: (error) {
         logger.e('❌ WebSocket error occurred: $error');
         logger.e('❌ Error type: ${error.runtimeType}');
-        _stopPingPong();
         onClose?.call(1006, error.toString());
       });
 
@@ -184,9 +174,6 @@ class SIPUAWebSocketImpl {
 
       logger.i('✅ Signaling server connected successfully');
       logger.i('🔄 Auto-reconnect: $enableAutoReconnect');
-
-      // Start ping/pong keepalive mechanism
-      _startPingPong();
 
       return true;
     } on TimeoutException catch (e) {
@@ -255,7 +242,6 @@ class SIPUAWebSocketImpl {
   }
 
   void close() {
-    _stopPingPong();
     if (_socket != null) _socket!.close();
   }
 
@@ -265,106 +251,7 @@ class SIPUAWebSocketImpl {
 
   /// Handle incoming WebSocket data, distinguishing between pong frames and regular messages
   void _handleIncomingData(dynamic data) {
-    // Since dart:io WebSocket handles ping/pong automatically,
-    // we just need to handle regular messages and reset failure count
-    _consecutivePingFailures = 0;
-
     // Regular message handling
     onMessage?.call(data);
-  }
-
-  /// Check connection health by monitoring if we're still receiving data
-  void _checkConnectionHealth() {
-    if (_socket == null || _socket!.readyState != WebSocket.open) {
-      logger.w('Connection health check: WebSocket not open');
-      return;
-    }
-
-    // Increment failure count - this will be reset when we receive any data
-    _consecutivePingFailures++;
-
-    logger.d('Connection health check: ${_consecutivePingFailures} consecutive periods without data');
-
-    if (_consecutivePingFailures >= _webSocketSettings!.maxPingFailures) {
-      logger.e('Max ping failures reached (${_consecutivePingFailures}), connection considered dead');
-
-      if (_webSocketSettings!.autoReconnectOnPingTimeout) {
-        logger.i('Auto-reconnecting due to connection timeout...');
-        _reconnectOnPingTimeout();
-      } else {
-        // Close the connection
-        onClose?.call(1006, 'Connection timeout: no data received');
-      }
-    }
-  }
-
-  /// Start the ping/pong keepalive mechanism
-  void _startPingPong() {
-    if (_webSocketSettings?.enablePingPong != true) {
-      logger.d('Ping/pong keepalive disabled');
-      return;
-    }
-
-    logger.d('Starting ping/pong keepalive with interval: ${_webSocketSettings!.pingInterval}s');
-
-    // Use dart:io WebSocket's built-in ping mechanism
-    _socket!.pingInterval = Duration(seconds: _webSocketSettings!.pingInterval);
-
-    // Set up a timer to monitor connection health
-    _pingTimer = setInterval(() {
-      _checkConnectionHealth();
-    }, _webSocketSettings!.pingInterval * 1000);
-  }
-
-  /// Stop the ping/pong keepalive mechanism
-  void _stopPingPong() {
-    // Disable native WebSocket ping mechanism
-    if (_socket != null) {
-      _socket!.pingInterval = null;
-    }
-
-    if (_pingTimer != null) {
-      clearInterval(_pingTimer);
-      _pingTimer = null;
-    }
-
-    if (_pongTimeoutTimer != null) {
-      clearTimeout(_pongTimeoutTimer);
-      _pongTimeoutTimer = null;
-    }
-
-    _waitingForPong = false;
-    _consecutivePingFailures = 0;
-  }
-
-  /// Handle connection timeout (used by connection health monitoring)
-  void _handlePingTimeout() {
-    logger.w('Connection timeout detected');
-
-    _waitingForPong = false;
-
-    if (_pongTimeoutTimer != null) {
-      clearTimeout(_pongTimeoutTimer);
-      _pongTimeoutTimer = null;
-    }
-
-    // Connection health monitoring handles the failure logic
-    // This method is kept for compatibility but delegates to health check
-    _checkConnectionHealth();
-  }
-
-  /// Reconnect the WebSocket connection due to ping timeout
-  void _reconnectOnPingTimeout() {
-    _stopPingPong();
-    _connectionState = ConnectionState.disconnected;
-    _isConnected = false;
-
-    // Close current connection
-    if (_socket != null) {
-      _socket!.close(1000, 'Reconnecting due to ping timeout');
-    }
-
-    // Trigger reconnection through the close callback
-    onClose?.call(1006, 'Ping timeout: reconnecting');
   }
 }

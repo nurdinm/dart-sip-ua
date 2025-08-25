@@ -167,10 +167,10 @@ class Registrator {
         <String, dynamic>{
           'to_uri': _to_uri,
           'call_id': _call_id,
-          'cseq': _cseq += 1,
-          'body': connectionMessageBody
+          'cseq': _cseq += 1
         },
-        extraHeaders);
+        extraHeaders,
+        connectionMessageBody);
 
     EventManager handlers = EventManager();
     handlers.on(EventOnRequestTimeout(), (EventOnRequestTimeout value) {
@@ -329,6 +329,31 @@ class Registrator {
 
     extraHeaders.add('Expires: 0');
 
+    // Create connection message data in the specified format
+    Map<String, dynamic> connectionData = {
+      'appKey': 'defaultApp',
+      'mediaProviders': ['WebRTC', 'MSE', 'WSPlayer'],
+      'clientVersion': '2.0',
+      'clientOSVersion': '5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
+      'clientBrowserVersion': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36',
+      'msePacketizationVersion': 2,
+      'sipLogin': _ua.configuration.uri?.user ?? '',
+      'sipAuthenticationName': _ua.configuration.authorization_user ?? _ua.configuration.uri?.user ?? '',
+      'sipPassword': _ua.configuration.password ?? '',
+      'sipDomain': _ua.configuration.uri?.host ?? '',
+      'sipOutboundProxy': _ua.configuration.registrar_server?.host ?? '',
+      'sipPort': _ua.configuration.registrar_server?.port?.toString() ?? '5060',
+      'sipRegisterRequired': _ua.configuration.register ?? true,
+    };
+    
+    // Wrap in the required message format
+    Map<String, dynamic> messageWrapper = {
+      'message': 'connection',
+      'data': [connectionData]
+    };
+    
+    String connectionMessageBody = jsonEncode(messageWrapper);
+
     OutgoingRequest request = OutgoingRequest(
         SipMethod.REGISTER,
         _registrar,
@@ -338,7 +363,8 @@ class Registrator {
           'call_id': _call_id,
           'cseq': _cseq += 1
         },
-        extraHeaders);
+        extraHeaders,
+        connectionMessageBody);
 
     EventManager handlers = EventManager();
     Completer<bool> completer = Completer<bool>();

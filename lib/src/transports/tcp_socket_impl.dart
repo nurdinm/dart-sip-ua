@@ -26,13 +26,31 @@ class SIPUATcpSocketImpl {
       {Iterable<String>? protocols,
       required TcpSocketSettings tcpSocketSettings}) async {
     handleQueue();
-    logger.i('connect $_host:$_port with timeout ${tcpSocketSettings.connectionTimeout}s');
+    logger.i('connect $_host:$_port with timeout ${tcpSocketSettings.connectionTimeout}s (TLS: ${tcpSocketSettings.useTLS})');
     try {
-      if (tcpSocketSettings.allowBadCertificate) {
-        // /// Allow self-signed certificate, for test only.
-        // _socket = await _connectForBadCertificate(_url, tcpSocketSettings);
+      if (tcpSocketSettings.useTLS) {
+        // Use TLS/SSL connection
+        logger.i('Establishing TLS connection to $_host:$_port');
+        _socket = await SecureSocket.connect(
+          _host,
+          int.parse(_port),
+          onBadCertificate: tcpSocketSettings.allowBadCertificate ? (X509Certificate cert) {
+            logger.w('⚠️ SSL Certificate warning for $_host:$_port');
+            logger.w('⚠️ Certificate subject: ${cert.subject}');
+            logger.w('⚠️ Certificate issuer: ${cert.issuer}');
+            logger.w('⚠️ Allowing connection (allowBadCertificate=true)');
+            return true;
+          } : null,
+        ).timeout(
+          Duration(seconds: tcpSocketSettings.connectionTimeout),
+          onTimeout: () {
+            logger.e('TLS connection timeout after ${tcpSocketSettings.connectionTimeout} seconds');
+            throw TimeoutException('TLS connection timeout', Duration(seconds: tcpSocketSettings.connectionTimeout));
+          },
+        );
       } else {
-        // Connect with configurable timeout
+        // Use plain TCP connection
+        logger.i('Establishing plain TCP connection to $_host:$_port');
         _socket = await Socket.connect(
           _host,
           int.parse(_port),

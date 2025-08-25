@@ -756,6 +756,9 @@ class TcpSocketSettings {
   /// for self-signed certificate.
   bool allowBadCertificate = false;
 
+  /// Use TLS/SSL for secure TCP connection
+  bool useTLS = false;
+
   /// Connection timeout in seconds (default: 10 seconds)
   int connectionTimeout = 60;
 }

@@ -155,7 +155,7 @@ class SIPUAHelper extends EventManager {
       _settings.sockets!.add(socket);
     }
 
-    if (uaSettings.transportType == TransportType.WS) {
+    if (uaSettings.transportType == TransportType.WS || uaSettings.transportType == TransportType.WSS) {
       SIPUAWebSocket socket = SIPUAWebSocket(
           uaSettings.webSocketUrl ?? 'wss://tryit.jssip.net:10443',
           messageDelay: _settings.sip_message_delay,

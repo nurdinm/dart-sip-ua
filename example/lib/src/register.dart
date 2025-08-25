@@ -184,7 +184,7 @@ class _MyRegisterWidget extends State<RegisterWidget>
             ),
           ),
           SizedBox(height: 15),
-          if (_selectedTransport == TransportType.WS) ...[
+          if (_selectedTransport == TransportType.WS || _selectedTransport == TransportType.WSS) ...[
             Text('WebSocket', style: TextStyle(color: textLabelColor)),
             SizedBox(height: 5),
             TextFormField(
@@ -296,6 +296,13 @@ class _MyRegisterWidget extends State<RegisterWidget>
                           _selectedTransport = value!;
                         })),
                     child: Text("WS")),
+                RadioMenuButton<TransportType>(
+                    value: TransportType.WSS,
+                    groupValue: _selectedTransport,
+                    onChanged: ((value) => setState(() {
+                          _selectedTransport = value!;
+                        })),
+                    child: Text("WSS")),
               ],
             ),
           ],

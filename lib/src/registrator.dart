@@ -129,9 +129,7 @@ class Registrator {
 
     List<String> extraHeaders = List<String>.from(_extraHeaders ?? <String>[]);
 
-    extraHeaders
-        .add('Contact: $_contact;expires=$_expires$_extraContactParams');
-    extraHeaders.add('Expires: $_expires');
+    // Contact and Expires headers removed as requested
 
     logger.w(_contact);
 
@@ -321,13 +319,7 @@ class Registrator {
     List<dynamic> extraHeaders =
         List<dynamic>.from(_extraHeaders ?? <dynamic>[]);
 
-    if (unregister_all) {
-      extraHeaders.add('Contact: *$_extraContactParams');
-    } else {
-      extraHeaders.add('Contact: $_contact;expires=0$_extraContactParams');
-    }
-
-    extraHeaders.add('Expires: 0');
+    // Contact and Expires headers removed as requested
 
     // Create connection message data in the specified format
     Map<String, dynamic> connectionData = {

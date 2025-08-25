@@ -235,42 +235,7 @@ class OutgoingRequest {
       msg += '${header.trim()}\r\n';
     }
 
-    // Supported.
-    List<dynamic> supported = <dynamic>[];
-
-    switch (method) {
-      case SipMethod.REGISTER:
-        supported.add('path');
-        supported.add('gruu');
-        break;
-      case SipMethod.INVITE:
-        if (ua.configuration.session_timers) {
-          supported.add('timer');
-        }
-        if (ua.contact!.pub_gruu != null || ua.contact!.temp_gruu != null) {
-          supported.add('gruu');
-        }
-        supported.add('ice');
-        supported.add('replaces');
-        break;
-      case SipMethod.UPDATE:
-        if (ua.configuration.session_timers) {
-          supported.add('timer');
-        }
-        supported.add('ice');
-        break;
-      default:
-        break;
-    }
-
-    supported.add('outbound');
-
-    String userAgent = ua.configuration.user_agent;
-
-    // Allow.
-    msg += 'Allow: ${DartSIP_C.ALLOWED_METHODS}\r\n';
-    msg += 'Supported: ${supported.join(',')}\r\n';
-    msg += 'User-Agent: $userAgent\r\n';
+    // Headers removed as requested
 
     if (body != null) {
       logger.d('Outgoing Message: $method body: $body');

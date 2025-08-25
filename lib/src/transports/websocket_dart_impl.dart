@@ -148,10 +148,6 @@ class SIPUAWebSocketImpl {
       _socket = webSocket;
       _channel = IOWebSocketChannel(webSocket);
 
-      // Set up stream listeners with enhanced error handling
-      // Add a small delay to ensure the server is ready before calling onOpen
-      // This helps prevent immediate disconnections on some SIP servers
-      await Future.delayed(Duration(milliseconds: 100));
       onOpen?.call();
       _socket!.listen((dynamic data) {
         logger.d(
@@ -219,7 +215,7 @@ class SIPUAWebSocketImpl {
       try {
         if (_socket != null && _socket!.readyState == WebSocket.open) {
           _socket!.add(event);
-          logger.d('send: \n\n$event');
+          logger.d('send 222: \n\n$event');
         } else {
           logger.w('Cannot send message: WebSocket not open (state: ${_socket?.readyState})');
         }

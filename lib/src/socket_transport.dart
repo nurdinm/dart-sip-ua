@@ -271,7 +271,7 @@ class SocketTransport {
     // Update connection health monitoring
     _lastMessageReceived = DateTime.now();
     _consecutiveHealthChecks = 0;
-
+    logger.d('received message: $data');
     // CRLF Keep Alive response from server. Ignore it.
     if (data == '\r\n') {
       logger.d('received message with CRLF Keep Alive response');

@@ -5,9 +5,7 @@ import 'tcp_socket_impl.dart';
 
 class SIPUATcpSocket extends SIPUASocketInterface {
   SIPUATcpSocket(String host, String port,
-      {required int messageDelay,
-      TcpSocketSettings? tcpSocketSettings,
-      int? weight})
+      {required int messageDelay, TcpSocketSettings? tcpSocketSettings, int? weight})
       : _messageDelay = messageDelay {
     logger.d('new() [host:$host:$port]');
     String transport_scheme = 'tcp';
@@ -78,8 +76,7 @@ class SIPUATcpSocket extends SIPUASocketInterface {
     logger.d('connecting to TcpSocket $_host:$_port');
     _connecting = true;
     try {
-      _tcpSocketImpl = SIPUATcpSocketImpl(
-          _messageDelay, _host ?? '0.0.0.0', _port ?? '5060');
+      _tcpSocketImpl = SIPUATcpSocketImpl(_messageDelay, _host ?? '0.0.0.0', _port ?? '5060');
 
       _tcpSocketImpl!.onOpen = () {
         _closed = false;
@@ -100,9 +97,7 @@ class SIPUATcpSocket extends SIPUASocketInterface {
         _onClose(true, closeCode, closeReason);
       };
 
-      _tcpSocketImpl!.connect(
-          protocols: <String>[_tcp_socket_protocol],
-          tcpSocketSettings: _tcpSocketSettings);
+      _tcpSocketImpl!.connect(protocols: <String>[_tcp_socket_protocol], tcpSocketSettings: _tcpSocketSettings);
     } catch (e, s) {
       logger.e(e.toString(), stackTrace: s);
       _connected = false;
@@ -164,7 +159,7 @@ class SIPUATcpSocket extends SIPUASocketInterface {
   }
 
   void _onMessage(dynamic data) {
-    logger.d('Received TcpSocket data');
+    logger.d('Received TcpSocket data: $data');
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         ondata!(data);
